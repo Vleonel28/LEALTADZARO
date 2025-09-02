@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Programa de Lealtad</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f9; }
+    h1 { color: #333; }
+    .card { background: #fff; padding: 15px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    label { display: block; margin-top: 10px; }
+    input, button, select { padding: 8px; margin-top: 5px; width: 100%; border: 1px solid #ccc; border-radius: 5px; }
+    button { background: #007bff; color: #fff; border: none; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+    th { background: #007bff; color: #fff; }
+  </style>
+</head>
+<body>
+  <h1>🎁 Programa de Lealtad</h1>
+
+  <div id="adminPanel" class="card">
+    <h2>Registrar Cliente</h2>
+    <label>Nombre:</label>
+    <input type="text" id="nombreCliente">
+    <button onclick="agregarCliente()">Agregar Cliente</button>
+  </div>
+
+  <div id="compraPanel" class="card">
+    <h2>Registrar Compra</h2>
+    <label>Cliente:</label>
+    <select id="clienteSelect"></select>
+    <label>Monto de la compra (MXN):</label>
+    <input type="number" id="montoCompra">
+    <button onclick="registrarCompra()">Registrar</button>
+  </div>
+
+  <div id="tablaPanel" class="card">
+    <h2>Lista de Clientes</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Puntos</th>
+          <th>Link/QR</th>
+        </tr>
+      </thead>
+      <tbody id="tablaClientes"></tbody>
+    </table>
+  </div>
+
+  <div id="clientePanel" class="card" style="display:none;">
+    <h2>Consulta de Puntos</h2>
+    <p><strong>Cliente:</strong> <span id="clienteNombre"></span></p>
+    <p><strong>Puntos acumulados:</strong> <span id="clientePuntos"></span></p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script>
+    let clientes = JSON.parse(localStorage.getItem("clientes")) || [];
+
+    function guardarDatos() {
+      localStorage.setItem("clientes", JSON.stringify(clientes));
+    }
+
+    function generarID() {
+      return Math.random().toString(36).substr(2, 9);
+    }
+
+    function actualizarVista() {
+      let tabla = document.getElementById("tablaClientes");
+      let select = document.getElementById("clienteSelect");
+      tabla.innerHTML = "";
+      select.innerHTML = "";
+      clientes.forEach((c, i) => {
+        tabla.innerHTML += `
+          <tr>
+            <td>${c.nombre}</td>
+            <td>${c.puntos}</td>
+            <td>
+              <a href="?id=${c.id}" target="_blank">🔗 Link</a><br>
+              <canvas id="qr-${c.id}"></canvas>
+            </td>
+          </tr>`;
+        select.innerHTML += `<option value="${i}">${c.nombre}</option>`;
+        setTimeout(() => {
+          QRCode.toCanvas(document.getElementById("qr-"+c.id), window.location.origin + window.location.pathname + "?id=" + c.id);
+        }, 100);
+      });
+    }
+
+    function agregarCliente() {
+      let nombre = document.getElementById("nombreCliente").value.trim();
+      if (nombre === "") { alert("Ingresa un nombre"); return; }
+      let id = generarID();
+      clientes.push({ id: id, nombre: nombre, puntos: 0 });
+      guardarDatos();
+      actualizarVista();
+      document.getElementById("nombreCliente").value = "";
+    }
+
+    function registrarCompra() {
+      let i = document.getElementById("clienteSelect").value;
+      let monto = parseFloat(document.getElementById("montoCompra").value);
+      if (isNaN(monto) || monto <= 0) { alert("Ingresa un monto válido"); return; }
+      let puntosGanados = Math.floor(monto / 10); // ejemplo: 1 punto por cada $10
+      clientes[i].puntos += puntosGanados;
+      guardarDatos();
+      actualizarVista();
+      document.getElementById("montoCompra").value = "";
+      alert(`✅ ${clientes[i].nombre} ganó ${puntosGanados} puntos`);
+    }
+
+    // Si el cliente entra con su link (ejemplo: lealtad.html?id=xxxx)
+    function mostrarCliente() {
+      let params = new URLSearchParams(window.location.search);
+      let id = params.get("id");
+      if (id) {
+        document.getElementById("adminPanel").style.display = "none";
+        document.getElementById("compraPanel").style.display = "none";
+        document.getElementById("tablaPanel").style.display = "none";
+        document.getElementById("clientePanel").style.display = "block";
+
+        let cliente = clientes.find(c => c.id === id);
+        if (cliente) {
+          document.getElementById("clienteNombre").textContent = cliente.nombre;
+          document.getElementById("clientePuntos").textContent = cliente.puntos;
+        } else {
+          document.getElementById("clienteNombre").textContent = "No encontrado";
+          document.getElementById("clientePuntos").textContent = "-";
+        }
+      }
+    }
+
+    actualizarVista();
+    mostrarCliente();
+  </script>
+</body>
+</html>
